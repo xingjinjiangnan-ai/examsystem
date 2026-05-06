@@ -1,6 +1,8 @@
 package com.example.examsystem.model.po;
 
 import com.example.examsystem.enums.QuestionType;
+import com.example.examsystem.model.content.QuestionContent;
+import com.example.examsystem.model.content.QuestionContentConverter;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -15,24 +17,16 @@ public class Question extends BaseEntity {
     @Column(nullable = false)
     private QuestionType type;
 
-    /**
-     * 题目内容 JSON，结构依 type 而定
-     */
+    @Convert(converter = QuestionContentConverter.class)
     @Column(columnDefinition = "json", nullable = false)
-    private String content;
+    private QuestionContent content;
 
     @Column(nullable = false)
     private Integer difficulty;
 
-    /**
-     * 逻辑外键 -> user.id (teacher)
-     */
     @Column(name = "created_by", nullable = false)
     private Long createdBy;
 
-    /**
-     * 逻辑外键 -> subject.id
-     */
     @Column(name = "subject_id", nullable = false)
     private Long subjectId;
 }
