@@ -50,6 +50,12 @@ public class UserService {
         return UserProfile.of(user, roles, permissions);
     }
 
+    /**
+     * 执行注册
+     *
+     * @param req 注册请求
+     * @return 待批准注册请求的 Profile
+     */
     public UserProfile doRegister(RegisterReq req) {
         boolean reqExists = registrationRequestRepository.existsByUsername(req.getUsername()) || registrationRequestRepository.existsByRealNameAndStudentId(req.getRealName(), req.getStudentId());
         if (reqExists) {
@@ -120,6 +126,12 @@ public class UserService {
                 .toList();
     }
 
+    /**
+     * 执行密码修改
+     *
+     * @param req 密码修改请求
+     * @return 修改密码的用户的 Profile
+     */
     public UserProfile doChangePassword(ChangePasswordReq req) {
         User user = userRepository.findByUsername(req.getUsername()).orElseThrow(() -> new BusinessException(404, "用户不存在"));
         if (!passwordEncoder.matches(req.getOldPassword(), user.getPassword())) {

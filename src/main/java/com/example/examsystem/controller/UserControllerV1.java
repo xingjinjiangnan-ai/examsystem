@@ -40,6 +40,11 @@ public class UserControllerV1 {
 
     @GetMapping("logout")
     public ApiResult<Void> logout() {
-        throw new UnsupportedOperationException();
+        try {
+            StpUtil.logout();
+        } catch (Exception ignored) {
+            log.debug("Logout failed");
+        }
+        return ApiResult.ok();
     }
 }
