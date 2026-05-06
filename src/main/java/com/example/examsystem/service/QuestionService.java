@@ -20,6 +20,9 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -31,7 +34,7 @@ public class QuestionService {
     public QuestionVO createQuestion(QuestionCreateReq req) {
         validateQuestion(req);
 
-        User user = userRepository.findByUsername(StpUtil.getLoginIdAsString())
+        User user = userRepository.findById(StpUtil.getLoginIdAsLong())
                 .orElseThrow(() -> new BusinessException(401, "用户身份异常"));
 
         Question question = new Question();
@@ -54,6 +57,10 @@ public class QuestionService {
     }
 
     public Page<QuestionVO> listQuestions(int page, int size, Long subjectId, QuestionType type, Integer difficulty) {
+        if (size > 100) {
+            size = 100;
+        }
+
         Specification<Question> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             if (subjectId != null) {
@@ -69,10 +76,14 @@ public class QuestionService {
         };
 
         Page<Question> pageResult = questionRepository.findAll(spec, PageRequest.of(page, size));
-        return pageResult.map(q -> {
-            Subject subject = subjectRepository.findById(q.getSubjectId()).orElse(null);
-            return QuestionVO.of(q, subject != null ? subject.getName() : null);
-        });
+
+        Set<Long> subjectIds = pageResult.stream()
+                .map(Question::getSubjectId)
+                .collect(Collectors.toSet());
+        Map<Long, String> subjectNameMap = subjectRepository.findAllById(subjectIds).stream()
+                .collect(Collectors.toMap(Subject::getId, Subject::getName));
+
+        return pageResult.map(q -> QuestionVO.of(q, subjectNameMap.get(q.getSubjectId())));
     }
 
     public QuestionVO updateQuestion(Long id, QuestionCreateReq req) {
@@ -99,23 +110,13 @@ public class QuestionService {
         questionRepository.deleteById(id);
     }
 
-    private String toPascalCase(String snakeCase) {
-        StringBuilder sb = new StringBuilder();
-        for (String part : snakeCase.split("_")) {
-            sb.append(Character.toUpperCase(part.charAt(0)));
-            sb.append(part.substring(1).toLowerCase());
-        }
-        return sb.toString();
-    }
-
     private void validateQuestion(QuestionCreateReq req) {
         if (!subjectRepository.existsById(req.getSubjectId())) {
             throw new BusinessException(404, "科目不存在");
         }
 
-        String contentClassName = req.getContent().getClass().getSimpleName();
-        String expectedTypeSuffix = toPascalCase(req.getType().name()) + "Content";
-        if (!contentClassName.equals(expectedTypeSuffix)) {
+        Class<?> expectedClass = req.getType().getContentClass();
+        if (!expectedClass.isInstance(req.getContent())) {
             throw new BusinessException(422, "题目类型与内容不匹配");
         }
     }

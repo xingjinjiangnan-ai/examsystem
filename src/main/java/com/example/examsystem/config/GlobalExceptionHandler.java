@@ -10,6 +10,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.util.NoSuchElementException;
+
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -41,6 +43,16 @@ public class GlobalExceptionHandler {
                 .reduce((a, b) -> a + "; " + b)
                 .orElse("参数校验失败");
         return ApiResult.error(400, msg);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ApiResult<?> handleIllegalArgument(IllegalArgumentException e) {
+        return ApiResult.error(400, e.getMessage());
+    }
+
+    @ExceptionHandler(NoSuchElementException.class)
+    public ApiResult<?> handleNoSuchElement(NoSuchElementException e) {
+        return ApiResult.error(404, "请求的资源不存在");
     }
 
     @ExceptionHandler(Exception.class)

@@ -10,7 +10,6 @@ import com.example.examsystem.model.vo.UserProfile;
 import com.example.examsystem.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -30,7 +29,7 @@ public class UserService {
     private final RoleRepository roleRepository;
     private final RolePermissionRepository rolePermissionRepository;
     private final PermissionRepository permissionRepository;
-    private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+    private final PasswordEncoder passwordEncoder;
 
     /**
      * 执行登录
@@ -40,13 +39,14 @@ public class UserService {
      */
     public UserProfile doLogin(LoginReq req) {
         User user = userRepository.findByUsername(req.getUsername())
-                .orElseThrow(() -> new IllegalArgumentException("用户名不存在"));
+                .orElseThrow(() -> new BusinessException(404, "用户名不存在"));
         if (!passwordEncoder.matches(req.getPassword(), user.getPassword())) {
             throw new BusinessException(401, "用户名或密码错误");
         }
-        StpUtil.login(user.getUsername());
+        StpUtil.login(user.getId());
         List<String> permissions = getUserPermissions(user.getId());
         List<String> roles = getUserRoles(user.getId());
+        log.info("用户登录成功: user={}", req.getUsername());
         return UserProfile.of(user, roles, permissions);
     }
 
@@ -57,7 +57,8 @@ public class UserService {
      * @return 待批准注册请求的 Profile
      */
     public UserProfile doRegister(RegisterReq req) {
-        boolean reqExists = registrationRequestRepository.existsByUsername(req.getUsername()) || registrationRequestRepository.existsByRealNameAndStudentId(req.getRealName(), req.getStudentId());
+        boolean reqExists = registrationRequestRepository.existsByUsername(req.getUsername())
+                || registrationRequestRepository.existsByRealNameAndStudentId(req.getRealName(), req.getStudentId());
         if (reqExists) {
             throw new BusinessException(409, "用户名或学号已提交注册，请勿重复注册");
         }
@@ -73,6 +74,7 @@ public class UserService {
         }
 
         RegistrationRequest request = RegistrationRequest.of(req);
+        request.setPassword(passwordEncoder.encode(req.getPassword()));
         registrationRequestRepository.save(request);
         return UserProfile.of(request);
     }
@@ -133,7 +135,12 @@ public class UserService {
      * @return 修改密码的用户的 Profile
      */
     public UserProfile doChangePassword(ChangePasswordReq req) {
-        User user = userRepository.findByUsername(req.getUsername()).orElseThrow(() -> new BusinessException(404, "用户不存在"));
+        long currentUserId = StpUtil.getLoginIdAsLong();
+        User user = userRepository.findByUsername(req.getUsername())
+                .orElseThrow(() -> new BusinessException(404, "用户不存在"));
+        if (!user.getId().equals(currentUserId)) {
+            throw new BusinessException(403, "只能修改自己的密码");
+        }
         if (!passwordEncoder.matches(req.getOldPassword(), user.getPassword())) {
             throw new BusinessException(401, "原密码错误");
         }

@@ -10,7 +10,7 @@ import com.example.examsystem.repository.UserRoleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +25,7 @@ public class DataInitializer implements CommandLineRunner {
     private final RoleRepository roleRepository;
     private final UserRepository userRepository;
     private final UserRoleRepository userRoleRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
     @Transactional
@@ -59,13 +60,12 @@ public class DataInitializer implements CommandLineRunner {
         if (userRepository.count() > 0) {
             return;
         }
-        BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
         String rawPassword = "exam123";
 
         Role adminRole = roleRepository.findByName(RoleType.SYSTEM_ADMIN).orElseThrow();
         User admin = new User();
         admin.setUsername("admin");
-        admin.setPassword(encoder.encode(rawPassword));
+        admin.setPassword(passwordEncoder.encode(rawPassword));
         admin.setRealName("系统管理员");
         admin.setStudentId(null);
         userRepository.save(admin);
@@ -78,7 +78,7 @@ public class DataInitializer implements CommandLineRunner {
         Role teacherRole = roleRepository.findByName(RoleType.TEACHER).orElseThrow();
         User teacher = new User();
         teacher.setUsername("teacher");
-        teacher.setPassword(encoder.encode(rawPassword));
+        teacher.setPassword(passwordEncoder.encode(rawPassword));
         teacher.setRealName("张老师");
         teacher.setStudentId(null);
         userRepository.save(teacher);
@@ -91,7 +91,7 @@ public class DataInitializer implements CommandLineRunner {
         Role studentRole = roleRepository.findByName(RoleType.STUDENT).orElseThrow();
         User student = new User();
         student.setUsername("student");
-        student.setPassword(encoder.encode(rawPassword));
+        student.setPassword(passwordEncoder.encode(rawPassword));
         student.setRealName("李同学");
         student.setStudentId("2024001");
         userRepository.save(student);
@@ -104,4 +104,3 @@ public class DataInitializer implements CommandLineRunner {
         log.info("已初始化 3 个测试账号（密码: {}）", rawPassword);
     }
 }
-

@@ -10,7 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.*;
 
-@RequestMapping("/api/v1/question/")
+@RequestMapping("/api/v1/question")
 @RestController
 @RequiredArgsConstructor
 public class QuestionControllerV1 {

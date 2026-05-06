@@ -13,7 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
 @Slf4j
-@RequestMapping("/api/v1/user/")
+@RequestMapping("/api/v1/user")
 @RestController
 @RequiredArgsConstructor
 public class UserControllerV1 {
@@ -31,10 +31,6 @@ public class UserControllerV1 {
 
     @PostMapping("change-password")
     public ApiResult<UserProfile> changePassword(@Valid @RequestBody ChangePasswordReq req) {
-        String userLoggedIn = StpUtil.getLoginIdAsString();
-        if (!userLoggedIn.equals(req.getUsername())) {
-            return ApiResult.error(401, "登录账号不匹配");
-        }
         return ApiResult.ok(userService.doChangePassword(req));
     }
 
