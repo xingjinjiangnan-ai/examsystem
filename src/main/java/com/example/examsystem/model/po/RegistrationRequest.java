@@ -30,7 +30,7 @@ public class RegistrationRequest extends BaseEntity {
     public static RegistrationRequest of(RegisterReq req) {
         RegistrationRequest request = new RegistrationRequest();
         request.setUsername(req.getUsername());
-        request.setPassword(null);
+        request.setPassword(req.getPassword());
         request.setRealName(req.getRealName());
         request.setStudentId(req.getStudentId());
         request.setStatus(RegistrationType.PENDING);
