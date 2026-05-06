@@ -1,0 +1,36 @@
+@import "tailwindcss";
+@plugin 'daisyui';
+@import "daisyui/utilities/glass.css";
+
+@layer utilities {
+  .surface {
+    @apply bg-base-100/55 border border-base-300/60 shadow-sm rounded-xl;
+  }
+}
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+body {
+  background-image: url("./assets/background.png");
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 120ms ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}

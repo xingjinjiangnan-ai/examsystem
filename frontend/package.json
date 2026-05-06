@@ -1,0 +1,33 @@
+{
+  "name": "examsystem-frontend",
+  "version": "1.0.0",
+  "description": "在线考试系统",
+  "license": "ISC",
+  "author": "",
+  "type": "module",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview"
+  },
+  "dependencies": {
+    "axios": "^1.16.0",
+    "pinia": "^3.0.0",
+    "vue": "^3.5.33",
+    "vue-router": "^5.0.0"
+  },
+  "devDependencies": {
+    "@electron-toolkit/preload": "^3.0.2",
+    "@electron-toolkit/utils": "^4.0.0",
+    "@tailwindcss/vite": "^4.1.11",
+    "@vitejs/plugin-vue": "^6.0.0",
+    "daisyui": "^5.5.19",
+    "electron": "^41.0.0",
+    "electron-vite": "^5.0.0",
+    "tailwindcss": "^4.1.11",
+    "typescript": "^5.8.3",
+    "vite": "^7.0.0",
+    "vue-tsc": "^3.0.0"
+  }
+}
