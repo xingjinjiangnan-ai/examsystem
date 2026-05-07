@@ -1,7 +1,6 @@
 package com.example.examsystem.model.po;
 
 import com.example.examsystem.enums.RegistrationType;
-import com.example.examsystem.model.dto.RegisterReq;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -26,14 +25,4 @@ public class RegistrationRequest extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private RegistrationType status;
-
-    public static RegistrationRequest of(RegisterReq req) {
-        RegistrationRequest request = new RegistrationRequest();
-        request.setUsername(req.getUsername());
-        request.setPassword(req.getPassword());
-        request.setRealName(req.getRealName());
-        request.setStudentId(req.getStudentId());
-        request.setStatus(RegistrationType.PENDING);
-        return request;
-    }
 }

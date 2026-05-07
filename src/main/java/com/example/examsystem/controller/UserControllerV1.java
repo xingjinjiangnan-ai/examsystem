@@ -21,12 +21,12 @@ public class UserControllerV1 {
 
     @PostMapping("login")
     public ApiResult<UserProfile> login(@Valid @RequestBody LoginReq req) {
-        return ApiResult.ok(userService.doLogin(req));
+        return ApiResult.ok(userService.doLogin(req.getUsername(), req.getPassword()));
     }
 
     @PostMapping("register")
     public ApiResult<UserProfile> register(@Valid @RequestBody RegisterReq req) {
-        return ApiResult.ok(userService.doRegister(req));
+        return ApiResult.ok(userService.doRegister(req.getUsername(), req.getPassword(), req.getRealName(), req.getStudentId()));
     }
 
     @PostMapping("change-password")
@@ -35,7 +35,7 @@ public class UserControllerV1 {
         if (!userLoggedIn.equals(req.getUsername())) {
             return ApiResult.error(401, "登录账号不匹配");
         }
-        return ApiResult.ok(userService.doChangePassword(req));
+        return ApiResult.ok(userService.doChangePassword(req.getUsername(), req.getOldPassword(), req.getNewPassword()));
     }
 
     @GetMapping("logout")

@@ -1,10 +1,8 @@
 package com.example.examsystem.service;
 
 import cn.dev33.satoken.stp.StpUtil;
+import com.example.examsystem.enums.RegistrationType;
 import com.example.examsystem.exception.BusinessException;
-import com.example.examsystem.model.dto.ChangePasswordReq;
-import com.example.examsystem.model.dto.LoginReq;
-import com.example.examsystem.model.dto.RegisterReq;
 import com.example.examsystem.model.po.*;
 import com.example.examsystem.model.vo.UserProfile;
 import com.example.examsystem.repository.*;
@@ -35,13 +33,14 @@ public class UserService {
     /**
      * 执行登录
      *
-     * @param req 登录请求
+     * @param username
+     * @param password
      * @return 登录的用户的 Profile
      */
-    public UserProfile doLogin(LoginReq req) {
-        User user = userRepository.findByUsername(req.getUsername())
+    public UserProfile doLogin(String username, String password) {
+        User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new IllegalArgumentException("用户名不存在"));
-        if (!passwordEncoder.matches(req.getPassword(), user.getPassword())) {
+        if (!passwordEncoder.matches(password, user.getPassword())) {
             throw new BusinessException(401, "用户名或密码错误");
         }
         StpUtil.login(user.getUsername());
@@ -53,26 +52,34 @@ public class UserService {
     /**
      * 执行注册
      *
-     * @param req 注册请求
+     * @param username
+     * @param password
+     * @param realName
+     * @param studentId
      * @return 待批准注册请求的 Profile
      */
-    public UserProfile doRegister(RegisterReq req) {
-        boolean reqExists = registrationRequestRepository.existsByUsername(req.getUsername()) || registrationRequestRepository.existsByRealNameAndStudentId(req.getRealName(), req.getStudentId());
+    public UserProfile doRegister(String username, String password, String realName, String studentId) {
+        boolean reqExists = registrationRequestRepository.existsByUsername(username) || registrationRequestRepository.existsByRealNameAndStudentId(realName, studentId);
         if (reqExists) {
             throw new BusinessException(409, "用户名或学号已提交注册，请勿重复注册");
         }
 
-        boolean usernameExists = userRepository.existsByUsername(req.getUsername());
+        boolean usernameExists = userRepository.existsByUsername(username);
         if (usernameExists) {
             throw new BusinessException(409, "用户名已被占用");
         }
 
-        boolean userExists = userRepository.existsByRealNameAndStudentId(req.getRealName(), req.getStudentId());
+        boolean userExists = userRepository.existsByRealNameAndStudentId(realName, studentId);
         if (userExists) {
             throw new BusinessException(409, "学号或姓名已注册过，请前往登录");
         }
 
-        RegistrationRequest request = RegistrationRequest.of(req);
+        RegistrationRequest request = new RegistrationRequest();
+        request.setUsername(username);
+        request.setPassword(passwordEncoder.encode(password));
+        request.setRealName(realName);
+        request.setStudentId(studentId);
+        request.setStatus(RegistrationType.PENDING);
         registrationRequestRepository.save(request);
         return UserProfile.of(request);
     }
@@ -129,18 +136,20 @@ public class UserService {
     /**
      * 执行密码修改
      *
-     * @param req 密码修改请求
+     * @param username
+     * @param oldPassword
+     * @param newPassword
      * @return 修改密码的用户的 Profile
      */
-    public UserProfile doChangePassword(ChangePasswordReq req) {
-        User user = userRepository.findByUsername(req.getUsername()).orElseThrow(() -> new BusinessException(404, "用户不存在"));
-        if (!passwordEncoder.matches(req.getOldPassword(), user.getPassword())) {
+    public UserProfile doChangePassword(String username, String oldPassword, String newPassword) {
+        User user = userRepository.findByUsername(username).orElseThrow(() -> new BusinessException(404, "用户不存在"));
+        if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
             throw new BusinessException(401, "原密码错误");
         }
 
-        user.setPassword(passwordEncoder.encode(req.getNewPassword()));
+        user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
-        log.info("用户密码已修改: user={}", req.getUsername());
+        log.info("用户密码已修改: user={}", username);
         return UserProfile.of(user);
     }
 }
