@@ -6,6 +6,9 @@ import type {
   QuestionContent,
 } from "@/types/question";
 import type { Subject } from "@/types/subject";
+import { useToast } from "@/composables/useToast";
+
+const toast = useToast();
 
 const props = defineProps<{
   subjects: Subject[];
@@ -140,14 +143,57 @@ const canSubmit = computed(() => {
   return content !== null;
 });
 
+function validate(): string | null {
+  if (!subjectId.value) return "请选择科目";
+  if (!stem.value.trim()) return "请填写题干";
+  switch (type.value) {
+    case "SINGLE_CHOICE": {
+      const validOptions = options.value.filter((o) => o.trim());
+      if (validOptions.length < 2) return "单选题至少需要2个有效选项";
+      if (!singleAnswer.value) return "请选择单选题的正确答案";
+      return null;
+    }
+    case "MULTI_CHOICE": {
+      const validOptions = options.value.filter((o) => o.trim());
+      if (validOptions.length < 2) return "多选题至少需要2个有效选项";
+      if (multiAnswers.value.length === 0) return "请至少选择一个正确答案";
+      return null;
+    }
+    case "TRUE_FALSE": {
+      return null;
+    }
+    case "FILL_BLANK": {
+      const validBlanks = blanks.value.filter((b) =>
+        b.answers.some((a) => a.text.trim()),
+      );
+      if (validBlanks.length === 0) return "至少需要1个有效填空位置";
+      for (let i = 0; i < validBlanks.length; i++) {
+        const b = validBlanks[i];
+        if (b.answers.some((a) => !a.maxLength || a.maxLength < 1)) {
+          return `填空 ${i + 1} 中存在最大字数未填写或不合法`;
+        }
+      }
+      return null;
+    }
+    case "SUBJECTIVE": {
+      if (!maxLength.value || maxLength.value < 1) return "请填写最大字数限制（至少1）";
+      return null;
+    }
+  }
+}
+
 function handleSubmit() {
-  const content = buildContent();
-  if (!content || !subjectId.value) return;
+  const err = validate();
+  if (err) {
+    toast.error(err);
+    return;
+  }
+  const content = buildContent()!;
   emit("submit", {
     type: type.value,
     content,
     difficulty: difficulty.value,
-    subjectId: subjectId.value,
+    subjectId: subjectId.value!,
   });
 }
 

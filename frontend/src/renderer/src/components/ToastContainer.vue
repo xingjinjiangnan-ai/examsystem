@@ -19,7 +19,7 @@ const iconMap: Record<string, string> = {
 </script>
 
 <template>
-  <div class="toast toast-top toast-end z-50">
+  <div class="fixed top-4 right-4 z-[9999] flex flex-col gap-2">
     <TransitionGroup name="toast">
       <div
         v-for="t in toasts"

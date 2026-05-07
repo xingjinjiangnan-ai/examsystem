@@ -2,10 +2,13 @@
 import { ref, computed, h } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
+import { changePassword } from "@/api/modules/user";
+import { useToast } from "@/composables/useToast";
 
 const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
+const toast = useToast();
 
 const sidebarCollapsed = ref(false);
 const sidebarWidth = computed(() => (sidebarCollapsed.value ? "w-16" : "w-60"));
@@ -38,6 +41,58 @@ function isActive(path: string) {
 async function handleLogout() {
   await authStore.doLogout();
   router.push("/login");
+}
+
+// Change password
+const userMenuOpen = ref(false);
+let menuTimer: ReturnType<typeof setTimeout> | null = null;
+
+function openMenu() {
+  if (menuTimer) clearTimeout(menuTimer);
+  userMenuOpen.value = true;
+}
+
+function closeMenu() {
+  menuTimer = setTimeout(() => {
+    userMenuOpen.value = false;
+  }, 150);
+}
+
+const pwDialogOpen = ref(false);
+const pwLoading = ref(false);
+const pwForm = ref({ oldPassword: "", newPassword: "", confirmPassword: "" });
+
+function openChangePassword() {
+  pwForm.value = { oldPassword: "", newPassword: "", confirmPassword: "" };
+  pwDialogOpen.value = true;
+}
+
+function closeChangePassword() {
+  pwDialogOpen.value = false;
+}
+
+async function handleChangePassword() {
+  const { oldPassword, newPassword, confirmPassword } = pwForm.value;
+  if (!oldPassword || !newPassword || !confirmPassword) {
+    toast.error("请填写所有密码字段");
+    return;
+  }
+  if (newPassword !== confirmPassword) {
+    toast.error("两次输入的新密码不一致");
+    return;
+  }
+  pwLoading.value = true;
+  try {
+    await changePassword({
+      username: authStore.user!.username,
+      oldPassword,
+      newPassword,
+    });
+    toast.success("密码修改成功");
+    closeChangePassword();
+  } finally {
+    pwLoading.value = false;
+  }
 }
 
 function HomeIcon() {
@@ -140,11 +195,31 @@ function UserIcon() {
   );
 }
 
+function KeyIcon() {
+  return h(
+    "svg",
+    {
+      class: "w-4 h-4",
+      fill: "none",
+      viewBox: "0 0 24 24",
+      stroke: "currentColor",
+      "stroke-width": 2,
+    },
+    [
+      h("path", {
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        d: "M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z",
+      }),
+    ],
+  );
+}
+
 function LogoutIcon() {
   return h(
     "svg",
     {
-      class: "w-5 h-5",
+      class: "w-4 h-4",
       fill: "none",
       viewBox: "0 0 24 24",
       stroke: "currentColor",
@@ -221,13 +296,18 @@ function LogoutIcon() {
           {{ route.meta.title || "考试系统" }}
         </h1>
 
-        <div class="flex items-center gap-4">
-          <!-- User info -->
-          <div class="flex items-center gap-2 text-sm text-base-content/80">
+        <!-- User dropdown -->
+        <div class="dropdown dropdown-end relative"
+          @mouseenter="openMenu"
+          @mouseleave="closeMenu"
+        >
+          <div
+            tabindex="0"
+            role="button"
+            class="flex items-center gap-2 text-sm text-base-content/80 hover:text-base-content transition-colors cursor-pointer px-2 py-1 rounded-lg hover:bg-base-100/30"
+          >
             <UserIcon />
-            <span>{{
-              authStore.user?.realName || authStore.user?.username
-            }}</span>
+            <span>{{ authStore.user?.realName || authStore.user?.username }}</span>
             <span
               v-if="authStore.user?.roles?.length"
               class="badge badge-sm badge-primary"
@@ -241,15 +321,26 @@ function LogoutIcon() {
               }}
             </span>
           </div>
-
-          <!-- Logout -->
-          <button
-            class="btn btn-circle btn-ghost btn-sm text-base-content/60 hover:text-error"
-            title="退出登录"
-            @click="handleLogout"
+          <ul
+            v-show="userMenuOpen"
+            tabindex="0"
+            class="dropdown-content menu menu-sm bg-base-100 rounded-lg shadow-xl z-[1] w-40 p-1 border border-base-300/50 absolute right-0 top-full"
+            @mouseenter="openMenu"
+            @mouseleave="closeMenu"
           >
-            <LogoutIcon />
-          </button>
+            <li>
+              <button class="flex items-center gap-2" @click="openChangePassword">
+                <KeyIcon />
+                <span>修改密码</span>
+              </button>
+            </li>
+            <li>
+              <button class="flex items-center gap-2 text-error" @click="handleLogout">
+                <LogoutIcon />
+                <span>退出登录</span>
+              </button>
+            </li>
+          </ul>
         </div>
       </header>
 
@@ -260,5 +351,55 @@ function LogoutIcon() {
         </Transition>
       </main>
     </div>
+  </div>
+
+  <!-- Change Password Modal -->
+  <div class="modal" :class="{ 'modal-open': pwDialogOpen }">
+    <div class="modal-box max-w-md rounded-2xl shadow-xl">
+      <h3 class="text-lg font-medium mb-4">修改密码</h3>
+      <div class="space-y-4">
+        <div class="form-control">
+          <label class="label"><span class="label-text text-sm">旧密码</span></label>
+          <input
+            v-model="pwForm.oldPassword"
+            type="password"
+            class="input input-bordered w-full rounded-lg"
+            placeholder="请输入旧密码"
+          />
+        </div>
+        <div class="form-control">
+          <label class="label"><span class="label-text text-sm">新密码</span></label>
+          <input
+            v-model="pwForm.newPassword"
+            type="password"
+            class="input input-bordered w-full rounded-lg"
+            placeholder="请输入新密码"
+          />
+        </div>
+        <div class="form-control">
+          <label class="label"><span class="label-text text-sm">确认新密码</span></label>
+          <input
+            v-model="pwForm.confirmPassword"
+            type="password"
+            class="input input-bordered w-full rounded-lg"
+            placeholder="请再次输入新密码"
+          />
+        </div>
+      </div>
+      <div class="modal-action">
+        <button class="btn btn-ghost rounded-lg" @click="closeChangePassword">取消</button>
+        <button
+          class="btn btn-primary rounded-lg"
+          :class="{ loading: pwLoading }"
+          :disabled="pwLoading"
+          @click="handleChangePassword"
+        >
+          保存
+        </button>
+      </div>
+    </div>
+    <form class="modal-backdrop" @click.prevent="closeChangePassword">
+      <button>close</button>
+    </form>
   </div>
 </template>
