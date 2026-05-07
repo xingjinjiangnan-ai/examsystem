@@ -2,16 +2,22 @@ package com.example.examsystem.service;
 
 import cn.dev33.satoken.stp.StpUtil;
 import com.example.examsystem.enums.RegistrationType;
+import com.example.examsystem.enums.RoleType;
 import com.example.examsystem.exception.BusinessException;
 import com.example.examsystem.model.po.*;
 import com.example.examsystem.model.vo.UserProfile;
 import com.example.examsystem.repository.*;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -131,6 +137,86 @@ public class UserService {
         return permissionRepository.findAllById(permissionIds).stream()
                 .map(Permission::getPermission)
                 .toList();
+    }
+
+    /**
+     * 列出注册请求
+     *
+     * @param page   页码
+     * @param size   每页大小
+     * @param status 可选的状态筛选
+     * @return 注册请求分页
+     */
+    public Page<UserProfile> listRegistrationRequests(int page, int size, RegistrationType status) {
+        Specification<RegistrationRequest> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            if (status != null) {
+                predicates.add(cb.equal(root.get("status"), status));
+            }
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+        Page<RegistrationRequest> pageResult = registrationRequestRepository.findAll(spec, PageRequest.of(page, size));
+        return pageResult.map(UserProfile::of);
+    }
+
+    /**
+     * 批准注册请求，创建学生用户并分配角色
+     *
+     * @param requestId 注册请求ID
+     * @return 创建的用户 Profile
+     */
+    public UserProfile approveRegistration(Long requestId) {
+        RegistrationRequest request = registrationRequestRepository.findById(requestId)
+                .orElseThrow(() -> new BusinessException(404, "注册请求不存在"));
+
+        if (request.getStatus() != RegistrationType.PENDING) {
+            throw new BusinessException(409, "该注册请求已被处理");
+        }
+
+        if (userRepository.existsByUsername(request.getUsername())) {
+            throw new BusinessException(409, "用户名已被占用");
+        }
+
+        User user = new User();
+        user.setUsername(request.getUsername());
+        user.setPassword(request.getPassword());
+        user.setRealName(request.getRealName());
+        user.setStudentId(request.getStudentId());
+        userRepository.save(user);
+
+        Role studentRole = roleRepository.findByName(RoleType.STUDENT)
+                .orElseThrow(() -> new BusinessException(500, "学生角色不存在"));
+        UserRole userRole = new UserRole();
+        userRole.setUserId(user.getId());
+        userRole.setRoleId(studentRole.getId());
+        userRoleRepository.save(userRole);
+
+        request.setStatus(RegistrationType.ACCEPTED);
+        registrationRequestRepository.save(request);
+
+        log.info("注册请求已批准: username={}, userId={}", user.getUsername(), user.getId());
+        return UserProfile.of(user);
+    }
+
+    /**
+     * 拒绝注册请求
+     *
+     * @param requestId 注册请求ID
+     * @return 被拒绝的请求的 Profile
+     */
+    public UserProfile rejectRegistration(Long requestId) {
+        RegistrationRequest request = registrationRequestRepository.findById(requestId)
+                .orElseThrow(() -> new BusinessException(404, "注册请求不存在"));
+
+        if (request.getStatus() != RegistrationType.PENDING) {
+            throw new BusinessException(409, "该注册请求已被处理");
+        }
+
+        request.setStatus(RegistrationType.REJECTED);
+        registrationRequestRepository.save(request);
+
+        log.info("注册请求已拒绝: username={}", request.getUsername());
+        return UserProfile.of(request);
     }
 
     /**

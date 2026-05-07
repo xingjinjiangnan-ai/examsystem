@@ -29,3 +29,17 @@ export interface ChangePasswordReq {
   oldPassword: string
   newPassword: string
 }
+
+export interface UserCreateReq {
+  username: string
+  password: string
+  realName: string
+  studentId?: string
+  roles: RoleType[]
+}
+
+export interface UserUpdateReq {
+  realName?: string
+  studentId?: string
+  roles?: RoleType[]
+}

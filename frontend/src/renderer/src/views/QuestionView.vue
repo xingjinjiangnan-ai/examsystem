@@ -8,6 +8,7 @@ import {
 } from "@/api/modules/question";
 import { listSubjects } from "@/api/modules/system";
 import QuestionForm from "@/components/QuestionForm.vue";
+import { useAuthStore } from "@/stores/auth";
 import type {
   QuestionVO,
   QuestionType,
@@ -16,6 +17,8 @@ import type {
 import type { Subject } from "@/types/subject";
 
 const questions = ref<QuestionVO[]>([]);
+const authStore = useAuthStore();
+const canEdit = authStore.isAdmin || authStore.isTeacher;
 const subjects = ref<Subject[]>([]);
 const loading = ref(false);
 const page = ref(0);
@@ -194,7 +197,7 @@ onMounted(() => {
         重置
       </button>
       <div class="flex-1" />
-      <button class="btn btn-primary btn-sm rounded-lg" @click="openCreate">
+      <button v-if="canEdit" class="btn btn-primary btn-sm rounded-lg" @click="openCreate">
         新建题目
       </button>
     </div>
@@ -256,15 +259,18 @@ onMounted(() => {
             <td>{{ q.subjectName }}</td>
             <td>{{ q.difficulty }}</td>
             <td class="text-right">
-              <button class="btn btn-ghost btn-sm" @click="openEdit(q)">
-                编辑
-              </button>
-              <button
-                class="btn btn-ghost btn-sm text-error"
-                @click="handleDelete(q.id)"
-              >
-                删除
-              </button>
+              <template v-if="canEdit">
+                <button class="btn btn-ghost btn-sm" @click="openEdit(q)">
+                  编辑
+                </button>
+                <button
+                  class="btn btn-ghost btn-sm text-error"
+                  @click="handleDelete(q.id)"
+                >
+                  删除
+                </button>
+              </template>
+              <span v-else class="text-xs text-base-content/40">-</span>
             </td>
           </tr>
         </tbody>

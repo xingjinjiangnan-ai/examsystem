@@ -1,6 +1,7 @@
 package com.example.examsystem.controller;
 
 import cn.dev33.satoken.stp.StpUtil;
+import com.example.examsystem.enums.RegistrationType;
 import com.example.examsystem.model.dto.ApiResult;
 import com.example.examsystem.model.dto.ChangePasswordReq;
 import com.example.examsystem.model.dto.LoginReq;
@@ -10,6 +11,7 @@ import com.example.examsystem.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.*;
 
 @Slf4j
@@ -73,5 +75,43 @@ public class UserControllerV1 {
             log.debug("Logout failed");
         }
         return ApiResult.ok();
+    }
+
+    /**
+     * 查看注册请求列表，支持分页和状态筛选
+     *
+     * @param page
+     * @param size
+     * @param status 可选的状态筛选
+     * @return
+     */
+    @GetMapping("registration-requests")
+    public ApiResult<Page<UserProfile>> listRegistrationRequests(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) RegistrationType status) {
+        return ApiResult.ok(userService.listRegistrationRequests(page, size, status));
+    }
+
+    /**
+     * 批准注册请求（仅管理员）
+     *
+     * @param id 注册请求ID
+     * @return
+     */
+    @PostMapping("registration-requests/{id}/approve")
+    public ApiResult<UserProfile> approveRegistration(@PathVariable Long id) {
+        return ApiResult.ok(userService.approveRegistration(id));
+    }
+
+    /**
+     * 拒绝注册请求（仅管理员）
+     *
+     * @param id 注册请求ID
+     * @return
+     */
+    @PostMapping("registration-requests/{id}/reject")
+    public ApiResult<UserProfile> rejectRegistration(@PathVariable Long id) {
+        return ApiResult.ok(userService.rejectRegistration(id));
     }
 }

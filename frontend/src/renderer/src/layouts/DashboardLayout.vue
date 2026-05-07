@@ -27,11 +27,30 @@ const navItems = [
     title: "题目管理",
     path: "/questions",
     icon: FileTextIcon,
+    teacherOrAdmin: true,
+  },
+  {
+    name: "Registrations",
+    title: "注册请求",
+    path: "/registrations",
+    icon: UserAddIcon,
+    teacherOrAdmin: true,
+  },
+  {
+    name: "Users",
+    title: "用户管理",
+    path: "/users",
+    icon: UsersIcon,
+    adminOnly: true,
   },
 ];
 
 const visibleNavItems = computed(() =>
-  navItems.filter((item) => !item.adminOnly || authStore.isAdmin),
+  navItems.filter((item) => {
+    if (item.adminOnly && !authStore.isAdmin) return false;
+    if (item.teacherOrAdmin && !authStore.isAdmin && !authStore.isTeacher) return false;
+    return true;
+  }),
 );
 
 function isActive(path: string) {
@@ -234,6 +253,46 @@ function LogoutIcon() {
     ],
   );
 }
+
+function UserAddIcon() {
+  return h(
+    "svg",
+    {
+      class: "w-5 h-5",
+      fill: "none",
+      viewBox: "0 0 24 24",
+      stroke: "currentColor",
+      "stroke-width": 2,
+    },
+    [
+      h("path", {
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        d: "M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z",
+      }),
+    ],
+  );
+}
+
+function UsersIcon() {
+  return h(
+    "svg",
+    {
+      class: "w-5 h-5",
+      fill: "none",
+      viewBox: "0 0 24 24",
+      stroke: "currentColor",
+      "stroke-width": 2,
+    },
+    [
+      h("path", {
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        d: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z",
+      }),
+    ],
+  );
+}
 </script>
 
 <template>
@@ -309,13 +368,19 @@ function LogoutIcon() {
             <UserIcon />
             <span>{{ authStore.user?.realName || authStore.user?.username }}</span>
             <span
-              v-if="authStore.user?.roles?.length"
-              class="badge badge-sm badge-primary"
+              v-for="role in authStore.user?.roles"
+              :key="role"
+              class="badge badge-sm"
+              :class="{
+                'badge-error': role === 'SYSTEM_ADMIN',
+                'badge-info': role === 'TEACHER',
+                'badge-primary': role === 'STUDENT'
+              }"
             >
               {{
-                authStore.user.roles[0] === "SYSTEM_ADMIN"
+                role === "SYSTEM_ADMIN"
                   ? "管理员"
-                  : authStore.user.roles[0] === "TEACHER"
+                  : role === "TEACHER"
                     ? "教师"
                     : "学生"
               }}
