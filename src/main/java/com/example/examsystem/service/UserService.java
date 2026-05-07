@@ -1,18 +1,23 @@
 package com.example.examsystem.service;
 
 import cn.dev33.satoken.stp.StpUtil;
+import com.example.examsystem.enums.RegistrationType;
+import com.example.examsystem.enums.RoleType;
 import com.example.examsystem.exception.BusinessException;
-import com.example.examsystem.model.dto.ChangePasswordReq;
-import com.example.examsystem.model.dto.LoginReq;
-import com.example.examsystem.model.dto.RegisterReq;
 import com.example.examsystem.model.po.*;
 import com.example.examsystem.model.vo.UserProfile;
 import com.example.examsystem.repository.*;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -34,13 +39,14 @@ public class UserService {
     /**
      * 执行登录
      *
-     * @param req 登录请求
+     * @param username
+     * @param password
      * @return 登录的用户的 Profile
      */
-    public UserProfile doLogin(LoginReq req) {
-        User user = userRepository.findByUsername(req.getUsername())
-                .orElseThrow(() -> new BusinessException(404, "用户名不存在"));
-        if (!passwordEncoder.matches(req.getPassword(), user.getPassword())) {
+    public UserProfile doLogin(String username, String password) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("用户名不存在"));
+        if (!passwordEncoder.matches(password, user.getPassword())) {
             throw new BusinessException(401, "用户名或密码错误");
         }
         StpUtil.login(user.getId());
@@ -53,28 +59,34 @@ public class UserService {
     /**
      * 执行注册
      *
-     * @param req 注册请求
+     * @param username
+     * @param password
+     * @param realName
+     * @param studentId
      * @return 待批准注册请求的 Profile
      */
-    public UserProfile doRegister(RegisterReq req) {
-        boolean reqExists = registrationRequestRepository.existsByUsername(req.getUsername())
-                || registrationRequestRepository.existsByRealNameAndStudentId(req.getRealName(), req.getStudentId());
+    public UserProfile doRegister(String username, String password, String realName, String studentId) {
+        boolean reqExists = registrationRequestRepository.existsByUsername(username) || registrationRequestRepository.existsByRealNameAndStudentId(realName, studentId);
         if (reqExists) {
             throw new BusinessException(409, "用户名或学号已提交注册，请勿重复注册");
         }
 
-        boolean usernameExists = userRepository.existsByUsername(req.getUsername());
+        boolean usernameExists = userRepository.existsByUsername(username);
         if (usernameExists) {
             throw new BusinessException(409, "用户名已被占用");
         }
 
-        boolean userExists = userRepository.existsByRealNameAndStudentId(req.getRealName(), req.getStudentId());
+        boolean userExists = userRepository.existsByRealNameAndStudentId(realName, studentId);
         if (userExists) {
             throw new BusinessException(409, "学号或姓名已注册过，请前往登录");
         }
 
-        RegistrationRequest request = RegistrationRequest.of(req);
-        request.setPassword(passwordEncoder.encode(req.getPassword()));
+        RegistrationRequest request = new RegistrationRequest();
+        request.setUsername(username);
+        request.setPassword(passwordEncoder.encode(password));
+        request.setRealName(realName);
+        request.setStudentId(studentId);
+        request.setStatus(RegistrationType.PENDING);
         registrationRequestRepository.save(request);
         return UserProfile.of(request);
     }
@@ -129,25 +141,102 @@ public class UserService {
     }
 
     /**
+     * 列出注册请求
+     *
+     * @param page   页码
+     * @param size   每页大小
+     * @param status 可选的状态筛选
+     * @return 注册请求分页
+     */
+    public Page<UserProfile> listRegistrationRequests(int page, int size, RegistrationType status) {
+        Specification<RegistrationRequest> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            if (status != null) {
+                predicates.add(cb.equal(root.get("status"), status));
+            }
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+        Page<RegistrationRequest> pageResult = registrationRequestRepository.findAll(spec, PageRequest.of(page, size));
+        return pageResult.map(UserProfile::of);
+    }
+
+    /**
+     * 批准注册请求，创建学生用户并分配角色
+     *
+     * @param requestId 注册请求ID
+     * @return 创建的用户 Profile
+     */
+    public UserProfile approveRegistration(Long requestId) {
+        RegistrationRequest request = registrationRequestRepository.findById(requestId)
+                .orElseThrow(() -> new BusinessException(404, "注册请求不存在"));
+
+        if (request.getStatus() != RegistrationType.PENDING) {
+            throw new BusinessException(409, "该注册请求已被处理");
+        }
+
+        if (userRepository.existsByUsername(request.getUsername())) {
+            throw new BusinessException(409, "用户名已被占用");
+        }
+
+        User user = new User();
+        user.setUsername(request.getUsername());
+        user.setPassword(request.getPassword());
+        user.setRealName(request.getRealName());
+        user.setStudentId(request.getStudentId());
+        userRepository.save(user);
+
+        Role studentRole = roleRepository.findByName(RoleType.STUDENT)
+                .orElseThrow(() -> new BusinessException(500, "学生角色不存在"));
+        UserRole userRole = new UserRole();
+        userRole.setUserId(user.getId());
+        userRole.setRoleId(studentRole.getId());
+        userRoleRepository.save(userRole);
+
+        request.setStatus(RegistrationType.ACCEPTED);
+        registrationRequestRepository.save(request);
+
+        log.info("注册请求已批准: username={}, userId={}", user.getUsername(), user.getId());
+        return UserProfile.of(user);
+    }
+
+    /**
+     * 拒绝注册请求
+     *
+     * @param requestId 注册请求ID
+     * @return 被拒绝的请求的 Profile
+     */
+    public UserProfile rejectRegistration(Long requestId) {
+        RegistrationRequest request = registrationRequestRepository.findById(requestId)
+                .orElseThrow(() -> new BusinessException(404, "注册请求不存在"));
+
+        if (request.getStatus() != RegistrationType.PENDING) {
+            throw new BusinessException(409, "该注册请求已被处理");
+        }
+
+        request.setStatus(RegistrationType.REJECTED);
+        registrationRequestRepository.save(request);
+
+        log.info("注册请求已拒绝: username={}", request.getUsername());
+        return UserProfile.of(request);
+    }
+
+    /**
      * 执行密码修改
      *
-     * @param req 密码修改请求
+     * @param username
+     * @param oldPassword
+     * @param newPassword
      * @return 修改密码的用户的 Profile
      */
-    public UserProfile doChangePassword(ChangePasswordReq req) {
-        long currentUserId = StpUtil.getLoginIdAsLong();
-        User user = userRepository.findByUsername(req.getUsername())
-                .orElseThrow(() -> new BusinessException(404, "用户不存在"));
-        if (!user.getId().equals(currentUserId)) {
-            throw new BusinessException(403, "只能修改自己的密码");
-        }
-        if (!passwordEncoder.matches(req.getOldPassword(), user.getPassword())) {
+    public UserProfile doChangePassword(String username, String oldPassword, String newPassword) {
+        User user = userRepository.findByUsername(username).orElseThrow(() -> new BusinessException(404, "用户不存在"));
+        if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
             throw new BusinessException(401, "原密码错误");
         }
 
-        user.setPassword(passwordEncoder.encode(req.getNewPassword()));
+        user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
-        log.info("用户密码已修改: user={}", req.getUsername());
+        log.info("用户密码已修改: user={}", username);
         return UserProfile.of(user);
     }
 }

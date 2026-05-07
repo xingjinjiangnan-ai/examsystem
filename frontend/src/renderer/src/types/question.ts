@@ -32,7 +32,7 @@ export interface FillBlankContent {
 
 export interface BlankItem {
   position: number
-  answers: string[]
+  answers: Record<string, number>
   matchMode: string
   ignoreCase?: boolean
 }
@@ -40,6 +40,7 @@ export interface BlankItem {
 export interface SubjectiveContent {
   type: 'SUBJECTIVE'
   stem: string
+  maxLength: number
   referenceAnswer?: string
   scoringGuide?: string
 }

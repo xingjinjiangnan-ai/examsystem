@@ -5,6 +5,8 @@ import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import DashboardView from '@/views/DashboardView.vue'
 import SubjectView from '@/views/SubjectView.vue'
 import QuestionView from '@/views/QuestionView.vue'
+import RegistrationView from '@/views/RegistrationView.vue'
+import UserView from '@/views/UserView.vue'
 import NotFoundView from '@/views/NotFoundView.vue'
 
 const routes = [
@@ -35,7 +37,19 @@ const routes = [
         path: 'questions',
         name: 'Questions',
         component: QuestionView,
-        meta: { title: '题目管理', icon: 'DocumentTextIcon' }
+        meta: { title: '题目管理', icon: 'DocumentTextIcon', requireTeacherOrAdmin: true }
+      },
+      {
+        path: 'registrations',
+        name: 'Registrations',
+        component: RegistrationView,
+        meta: { title: '注册请求', icon: 'UserAddIcon', requireTeacherOrAdmin: true }
+      },
+      {
+        path: 'users',
+        name: 'Users',
+        component: UserView,
+        meta: { title: '用户管理', icon: 'UsersIcon', requireAdmin: true }
       }
     ]
   },
@@ -59,6 +73,11 @@ router.beforeEach((to, _from, next) => {
   }
 
   if (to.meta.requireAdmin && !authStore.isAdmin) {
+    next('/dashboard')
+    return
+  }
+
+  if (to.meta.requireTeacherOrAdmin && !authStore.isAdmin && !authStore.isTeacher) {
     next('/dashboard')
     return
   }

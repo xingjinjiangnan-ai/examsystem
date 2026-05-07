@@ -65,7 +65,7 @@ onMounted(loadData)
       </button>
     </div>
 
-    <div class="surface overflow-hidden">
+    <div class="surface overflow-hidden min-h-[400px]">
       <table class="table table-zebra w-full">
         <thead>
           <tr class="bg-base-200/60 text-xs uppercase tracking-wider">
@@ -75,15 +75,23 @@ onMounted(loadData)
           </tr>
         </thead>
         <tbody>
-          <tr v-if="loading">
-            <td colspan="3" class="h-32 text-center text-base-content/40">
-              <span class="loading loading-spinner loading-sm" />
-              加载中...
-            </td>
-          </tr>
+          <template v-if="loading">
+            <tr v-for="n in 5" :key="`sk-${n}`" class="h-12">
+              <td><div class="skeleton h-4 w-8" /></td>
+              <td><div class="skeleton h-4 w-32" /></td>
+              <td class="text-right"><div class="skeleton h-4 w-20 ml-auto" /></td>
+            </tr>
+          </template>
           <tr v-else-if="!subjects.length">
-            <td colspan="3" class="h-32 text-center text-base-content/40">
-              暂无科目数据
+            <td colspan="3">
+              <div class="grid place-items-center h-[320px]">
+                <div class="text-center space-y-2">
+                  <svg class="w-12 h-12 mx-auto text-base-content/20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9.172 16.172a4 4 0 015.656 0M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <p class="text-sm text-base-content/50">暂无科目数据</p>
+                </div>
+              </div>
             </td>
           </tr>
           <tr v-for="s in subjects" :key="s.id" class="h-12">
